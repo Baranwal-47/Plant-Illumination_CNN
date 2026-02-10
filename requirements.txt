@@ -1,0 +1,26 @@
+# Plant Disease Detection - Requirements File
+
+# Deep Learning Framework
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Machine Learning & Data Science
+scikit-learn>=1.3.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Image Processing
+Pillow>=10.0.0
+
+# Visualization
+matplotlib>=3.6.0
+plotly>=5.15.0
+
+# Web Framework
+streamlit>=1.28.0
+
+# Progress Bars & Utils  
+tqdm>=4.65.0
+
+# Additional utilities that might be needed
+opencv-python>=4.7.0

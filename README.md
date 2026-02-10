@@ -188,11 +188,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Streamlit** - Web application framework
 - **Agricultural Research Community** - Domain expertise
 
-## 📧 Contact
-
-**Project Maintainer:** [Your Name]
-- GitHub: [@yourusername](https://github.com/yourusername)
-- Email: your.email@example.com
-
 ---
 **⭐ Star this repository if you found it helpful!**

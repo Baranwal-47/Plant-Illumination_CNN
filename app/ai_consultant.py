@@ -15,6 +15,7 @@ DEFAULT_AGENT_ROUTER_MODEL = "claude-haiku-4-5-20251001"
 @dataclass
 class AgentRouterConfig:
     api_key: str
+    auth_token: str
     base_url: str
     model: str
 
@@ -50,24 +51,39 @@ def load_agent_router_config():
     file_values = _load_env_file()
 
     api_key = (
-        os.getenv("AGENT_ROUTER_TOKEN")
-        or os.getenv("AGENT_ROUTER_API_KEY")
-        or os.getenv("ANTHROPIC_API_KEY")
-        or file_values.get("AGENT_ROUTER_TOKEN")
+        file_values.get("AGENT_ROUTER_TOKEN")
         or file_values.get("AGENT_ROUTER_API_KEY")
         or file_values.get("ANTHROPIC_API_KEY")
+        or file_values.get("ANTHROPIC_AUTH_TOKEN")
+        or file_values.get("AGENT_ROUTER_AUTH_TOKEN")
         or file_values.get("RAW_AGENT_ROUTER_KEY")
+        or os.getenv("AGENT_ROUTER_TOKEN")
+        or os.getenv("AGENT_ROUTER_API_KEY")
+        or os.getenv("ANTHROPIC_API_KEY")
+        or os.getenv("ANTHROPIC_AUTH_TOKEN")
+        or os.getenv("AGENT_ROUTER_AUTH_TOKEN")
+    )
+    auth_token = (
+        file_values.get("ANTHROPIC_AUTH_TOKEN")
+        or file_values.get("AGENT_ROUTER_AUTH_TOKEN")
+        or file_values.get("AGENT_ROUTER_TOKEN")
+        or file_values.get("AGENT_ROUTER_API_KEY")
+        or file_values.get("RAW_AGENT_ROUTER_KEY")
+        or os.getenv("ANTHROPIC_AUTH_TOKEN")
+        or os.getenv("AGENT_ROUTER_AUTH_TOKEN")
+        or os.getenv("AGENT_ROUTER_TOKEN")
+        or os.getenv("AGENT_ROUTER_API_KEY")
     )
     base_url = (
-        os.getenv("AGENT_ROUTER_BASE_URL")
-        or file_values.get("AGENT_ROUTER_BASE_URL")
+        file_values.get("AGENT_ROUTER_BASE_URL")
+        or os.getenv("AGENT_ROUTER_BASE_URL")
         or DEFAULT_AGENT_ROUTER_BASE_URL
     )
     model = (
-        os.getenv("AGENT_ROUTER_MODEL")
-        or os.getenv("ANTHROPIC_MODEL")
-        or file_values.get("AGENT_ROUTER_MODEL")
+        file_values.get("AGENT_ROUTER_MODEL")
         or file_values.get("ANTHROPIC_MODEL")
+        or os.getenv("AGENT_ROUTER_MODEL")
+        or os.getenv("ANTHROPIC_MODEL")
         or DEFAULT_AGENT_ROUTER_MODEL
     )
 
@@ -78,6 +94,7 @@ def load_agent_router_config():
 
     return AgentRouterConfig(
         api_key=api_key,
+        auth_token=auth_token or api_key,
         base_url=base_url.rstrip("/"),
         model=model,
     )
@@ -87,6 +104,37 @@ def _chat_completions_url(base_url):
     if base_url.endswith("/chat/completions"):
         return base_url
     return f"{base_url}/chat/completions"
+
+
+def _agent_router_headers(config):
+    return {
+        "Authorization": f"Bearer {config.auth_token}",
+        "x-api-key": config.api_key,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+
+def _format_http_error(exc):
+    detail = exc.read().decode("utf-8", errors="ignore")
+    try:
+        payload = json.loads(detail)
+    except json.JSONDecodeError:
+        payload = {}
+
+    error_type = payload.get("type") or payload.get("error", {}).get("type")
+    message = payload.get("message") or payload.get("error", {}).get("message") or detail
+
+    if exc.code == 401 and error_type == "unauthorized_client_error":
+        return (
+            "AgentRouter rejected this Streamlit app as an unauthorized client before "
+            "running the model. Your token may be enabled, but the account/client is not "
+            "authorized for direct custom API calls. Use an AgentRouter API/system token "
+            "approved for API calls, or contact AgentRouter support and share the "
+            "`unauthorized_client_error` message."
+        )
+
+    return f"AgentRouter request failed ({exc.code}): {message}"
 
 
 def build_consultation_prompt(prediction, assessment, user_notes):
@@ -153,8 +201,7 @@ def request_ai_consultation(prediction, assessment, user_notes=""):
         _chat_completions_url(config.base_url),
         data=body,
         headers={
-            "Authorization": f"Bearer {config.api_key}",
-            "Content-Type": "application/json",
+            **_agent_router_headers(config),
         },
         method="POST",
     )
@@ -163,8 +210,7 @@ def request_ai_consultation(prediction, assessment, user_notes=""):
         with urllib.request.urlopen(request, timeout=45) as response:
             data = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="ignore")
-        raise ConsultationError(f"AgentRouter request failed ({exc.code}): {detail}") from exc
+        raise ConsultationError(_format_http_error(exc)) from exc
     except urllib.error.URLError as exc:
         raise ConsultationError(f"Could not reach AgentRouter: {exc.reason}") from exc
     except TimeoutError as exc:

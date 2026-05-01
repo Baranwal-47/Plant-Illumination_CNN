@@ -37,10 +37,14 @@ The app reads the API key from `.env` or environment variables using any of thes
 ```text
 AGENT_ROUTER_TOKEN
 AGENT_ROUTER_API_KEY
+AGENT_ROUTER_AUTH_TOKEN
+ANTHROPIC_AUTH_TOKEN
 ANTHROPIC_API_KEY
 ```
 
 It also supports a single raw key line in `.env` for convenience. The `.env` file is ignored by Git.
+
+If AgentRouter returns `unauthorized_client_error`, the token was found but AgentRouter rejected the calling client before model execution. In that case, use an API/system token approved for direct API calls or contact AgentRouter support.
 
 ## Supported Disease Classes
 

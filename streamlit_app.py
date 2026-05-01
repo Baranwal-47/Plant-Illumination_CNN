@@ -19,7 +19,7 @@ from app.history import (
     filter_history,
     history_dataframe,
 )
-from app.gradcam import create_gradcam_overlay
+from app.gradcam import create_gradcam_visualization
 from app.model_utils import load_model, predict_image
 
 
@@ -189,7 +189,7 @@ def render_single_image_tab(
                     confidence_threshold,
                     margin_threshold,
                 )
-                heatmap = create_gradcam_overlay(
+                gradcam = create_gradcam_visualization(
                     image,
                     model,
                     transform,
@@ -208,17 +208,21 @@ def render_single_image_tab(
                     "key": analysis_key,
                     "prediction": prediction,
                     "assessment": assessment,
-                    "heatmap": heatmap,
+                    "gradcam": gradcam,
                 }
             except Exception as exc:
                 st.error(f"Error during prediction: {exc}")
                 return
 
     saved_analysis = st.session_state.get("single_image_analysis")
-    if saved_analysis and saved_analysis.get("key") == analysis_key:
+    if (
+        saved_analysis
+        and saved_analysis.get("key") == analysis_key
+        and "gradcam" in saved_analysis
+    ):
         prediction = saved_analysis["prediction"]
         assessment = saved_analysis["assessment"]
-        heatmap = saved_analysis["heatmap"]
+        gradcam = saved_analysis["gradcam"]
 
         st.divider()
         st.write("### Analysis Results")
@@ -229,7 +233,27 @@ def render_single_image_tab(
             assessment,
         )
 
-        result_col, heatmap_col = st.columns([0.95, 1.05])
+        st.write("### Model Focus")
+        original_col, heatmap_col, overlay_col = st.columns(3)
+        with original_col:
+            st.image(image, caption="Original image", width="stretch")
+        with heatmap_col:
+            st.image(
+                gradcam.heatmap,
+                caption="Grad-CAM heatmap",
+                width="stretch",
+            )
+        with overlay_col:
+            st.image(
+                gradcam.overlay,
+                caption=f"Prediction: {format_label(prediction.prediction)}",
+                width="stretch",
+            )
+        st.caption(
+            "Grad-CAM is computed from the trained CNN's gradients for the predicted class. Red/yellow areas contributed more strongly to that class score."
+        )
+
+        result_col, info_col = st.columns([0.9, 1.1])
         with result_col:
             st.plotly_chart(
                 create_confidence_chart(
@@ -237,21 +261,8 @@ def render_single_image_tab(
                     prediction.top3_confidences,
                 )
             )
+        with info_col:
             display_disease_info(prediction.prediction)
-
-        with heatmap_col:
-            compare_left, compare_right = st.columns(2)
-            with compare_left:
-                st.image(image, caption="Original image", width="stretch")
-            with compare_right:
-                st.image(
-                    heatmap,
-                    caption="Grad-CAM focus overlay",
-                    width="stretch",
-                )
-            st.caption(
-                "Warmer colors show regions that contributed more strongly to the CNN prediction."
-            )
 
         display_ai_consultation(prediction, assessment)
 

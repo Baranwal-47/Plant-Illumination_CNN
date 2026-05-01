@@ -18,6 +18,10 @@ An AI-powered plant disease detection system that uses a custom PyTorch CNN to c
 - `Needs Expert Review` status when confidence is low or the top predictions are too close.
 - Optional AI second consultation through AgentRouter for uncertain cases.
 
+## App Preview
+
+![Streamlit app demo](screenshots/app_demo.png)
+
 ### AI Second Consultation
 The consultation feature uses an OpenAI-compatible AgentRouter chat completion endpoint.
 
@@ -137,6 +141,10 @@ Training saves:
 - `inference_transform.pkl`
 - `learning_curves.png`
 
+### Training Curves
+
+![Training and validation learning curves](learning_curves.png)
+
 ## Verification
 
 Run the model smoke test:
@@ -154,7 +162,7 @@ python test_model.py
 
 ## Notes
 
-- Grad-CAM uses the trained CNN's final convolution block (`conv_block4`) and the predicted class score.
+- Grad-CAM uses the trained CNN's final convolution block (`conv_block4[0]`) and the predicted class score. It is generated from model activations and gradients, then displayed as a JET heatmap and superimposed overlay.
 - AI consultation is advisory only. It should not be treated as a definitive agricultural diagnosis.
 - Low confidence or close top predictions are flagged as `Needs Expert Review`.
 - The app does not retrain the model during inference.

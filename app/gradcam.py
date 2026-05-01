@@ -1,42 +1,50 @@
 """Grad-CAM heatmap generation for CNN explainability."""
 
+from dataclasses import dataclass
+
 import numpy as np
 import torch
-import torch.nn.functional as F
 from PIL import Image
 
 
-def _normalize_heatmap(cam):
-    cam = cam.detach().cpu().numpy()
-    high = np.percentile(cam, 99)
-    low = np.percentile(cam, 5)
-    if high <= low:
-        return np.zeros_like(cam, dtype=np.float32)
-    return np.clip((cam - low) / (high - low), 0.0, 1.0).astype(np.float32)
+@dataclass
+class GradCamResult:
+    heatmap: Image.Image
+    overlay: Image.Image
 
 
-def _heatmap_to_rgb(heatmap):
-    """Create a high-contrast blue-to-red heatmap without plotting dependencies."""
+def _resize_heatmap(heatmap, size):
+    heatmap_image = Image.fromarray(np.uint8(255 * heatmap))
+    heatmap_image = heatmap_image.resize(size, Image.Resampling.BILINEAR)
+    return np.asarray(heatmap_image).astype(np.float32) / 255.0
+
+
+def _apply_jet_colormap(heatmap):
+    """Approximate OpenCV's JET colormap with NumPy."""
     heatmap = np.clip(heatmap, 0.0, 1.0)
-    red = (255 * np.clip(1.8 * heatmap - 0.35, 0.0, 1.0)).astype(np.uint8)
-    green = (255 * np.clip(1.7 - np.abs(heatmap - 0.55) * 2.6, 0.0, 1.0)).astype(np.uint8)
-    blue = (255 * np.clip(1.2 - 1.7 * heatmap, 0.0, 1.0)).astype(np.uint8)
-
-    rgb = np.stack([red, green, blue], axis=-1).astype(np.uint8)
-    return rgb
+    red = np.clip(1.5 - np.abs(4.0 * heatmap - 3.0), 0.0, 1.0)
+    green = np.clip(1.5 - np.abs(4.0 * heatmap - 2.0), 0.0, 1.0)
+    blue = np.clip(1.5 - np.abs(4.0 * heatmap - 1.0), 0.0, 1.0)
+    return np.uint8(255 * np.stack([red, green, blue], axis=-1))
 
 
-def create_gradcam_overlay(image, model, transform, device, class_index, alpha=0.72):
-    """Return a high-contrast PIL Grad-CAM overlay for the selected class."""
-    activations = []
-    gradients = []
-    target_layer = model.conv_block4
+def create_gradcam_visualization(image, model, transform, device, class_index):
+    """Create class-specific Grad-CAM heatmap and overlay images.
+
+    The heatmap is computed from the trained CNN by backpropagating the predicted
+    class score into the first convolution of the model's final convolution block.
+    """
+    activations = None
+    gradients = None
+    target_layer = model.conv_block4[0]
 
     def forward_hook(_module, _inputs, output):
-        activations.append(output.detach())
+        nonlocal activations
+        activations = output.detach()
 
     def backward_hook(_module, _grad_input, grad_output):
-        gradients.append(grad_output[0].detach())
+        nonlocal gradients
+        gradients = grad_output[0].detach()
 
     forward_handle = target_layer.register_forward_hook(forward_hook)
     backward_handle = target_layer.register_full_backward_hook(backward_hook)
@@ -44,33 +52,41 @@ def create_gradcam_overlay(image, model, transform, device, class_index, alpha=0
     try:
         model.eval()
         model.zero_grad(set_to_none=True)
-        input_tensor = transform(image.convert("RGB")).unsqueeze(0).to(device)
-        output = model(input_tensor)
-        score = output[0, class_index]
-        score.backward()
-
-        if not activations or not gradients:
-            raise RuntimeError("Could not capture model activations for Grad-CAM.")
-
-        activation = activations[0]
-        gradient = gradients[0]
-        weights = gradient.mean(dim=(2, 3), keepdim=True)
-        cam = torch.sum(weights * activation, dim=1)
-        cam = F.relu(cam)
-        cam = F.interpolate(
-            cam.unsqueeze(1),
-            size=image.size[::-1],
-            mode="bilinear",
-            align_corners=False,
-        ).squeeze()
-
-        heatmap_np = _normalize_heatmap(cam)
-        heatmap_rgb = _heatmap_to_rgb(heatmap_np)
 
         original = image.convert("RGB")
-        overlay = Image.fromarray(heatmap_rgb).resize(original.size)
-        blended = Image.blend(original, overlay, alpha)
-        return blended
+        input_tensor = transform(original).unsqueeze(0).to(device)
+        output = model(input_tensor)
+        output[:, class_index].backward()
+
+        if activations is None or gradients is None:
+            raise RuntimeError("Could not capture activations or gradients for Grad-CAM.")
+
+        pooled_gradients = torch.mean(gradients, dim=[0, 2, 3])
+        weighted_activations = activations.clone()
+        for channel_idx in range(weighted_activations.size(1)):
+            weighted_activations[:, channel_idx, :, :] *= pooled_gradients[channel_idx]
+
+        heatmap = torch.mean(weighted_activations, dim=1).squeeze().cpu().numpy()
+        heatmap = np.maximum(heatmap, 0)
+
+        max_value = np.max(heatmap)
+        if max_value > 0:
+            heatmap = heatmap / max_value
+
+        original_np = np.array(original)
+        heatmap = _resize_heatmap(heatmap, original.size)
+        heatmap_rgb = _apply_jet_colormap(heatmap)
+        overlay = np.clip(
+            (original_np.astype(np.float32) * 0.6)
+            + (heatmap_rgb.astype(np.float32) * 0.4),
+            0,
+            255,
+        ).astype(np.uint8)
+
+        return GradCamResult(
+            heatmap=Image.fromarray(heatmap_rgb),
+            overlay=Image.fromarray(overlay),
+        )
     finally:
         forward_handle.remove()
         backward_handle.remove()

@@ -1,192 +1,160 @@
-# 🌱 Plant Disease Detection using CNN
+# Plant Disease Detection using CNN
 
-[![Python](https://img.shields.io/badge/Python-3.12.6-blue.svg)](https://python.org)
-[![PyTorch](https://img.shields.io/badge/PyTorch-Latest-red.svg)](https://pytorch.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-Latest-brightgreen.svg)](https://streamlit.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+An AI-powered plant disease detection system that uses a custom PyTorch CNN to classify plant leaf diseases from images. The Streamlit app supports single-image analysis, batch analysis, prediction history, Grad-CAM explainability, uncertainty handling, and an optional AgentRouter AI second consultation.
 
-An AI-powered plant disease detection system using Convolutional Neural Networks (CNN) to classify plant diseases from leaf images with **98%+ accuracy**.
+## Features
 
-## 🎯 Features
+### Machine Learning
+- Custom CNN architecture with 1,688,079 trainable parameters.
+- 15 supported classes across pepper, potato, and tomato leaves.
+- Confidence scoring with adjustable reliability threshold.
+- Top-3 prediction chart for uncertainty awareness.
+- Grad-CAM heatmap overlay to show which image regions influenced the CNN prediction.
 
-### 🔬 **Machine Learning Capabilities**
-- **Custom CNN Architecture** with 1.68M parameters
-- **15 Disease Classes** across 3 major crops (Pepper, Potato, Tomato)
-- **98%+ Validation Accuracy** on PlantVillage dataset
-- **Confidence Scoring** with adjustable thresholds
-- **Top-3 Predictions** for uncertainty handling
+### Streamlit Application
+- Single image analysis with prediction, confidence, top-3 classes, disease information, and Grad-CAM comparison.
+- Batch image analysis with reliability flags and CSV export.
+- Results history with filters, summary metrics, charts, and CSV export.
+- `Needs Expert Review` status when confidence is low or the top predictions are too close.
+- Optional AI second consultation through AgentRouter for uncertain cases.
 
-### 🖥️ **Web Application**
-- **Interactive Streamlit Interface** with professional UI
-- **Single Image Analysis** with real-time predictions
-- **Batch Processing** for multiple images
-- **Results History** with filtering and analytics
-- **Disease Information Cards** with treatment recommendations
-- **CSV Export** for analysis results
+### AI Second Consultation
+The consultation feature uses an OpenAI-compatible AgentRouter chat completion endpoint.
 
-### 🛠️ **Technical Features**
-- **Robust Data Pipeline** with error handling
-- **Data Augmentation** for improved generalization
-- **Model Checkpointing** with automatic best model saving
-- **Learning Curve Visualization** for training analysis
+Default configuration:
 
-## 🏗️ Tech Stack
-
-### **Deep Learning Framework**
-- **PyTorch** - Neural network implementation and training
-- **torchvision** - Image transformations and data loading
-
-### **Web Framework & Visualization**
-- **Streamlit** - Interactive web application
-- **Plotly** - Advanced charts and visualizations
-- **Matplotlib** - Training progress plots
-
-### **Data Science & ML**
-- **scikit-learn** - Data splitting and label encoding
-- **NumPy** - Numerical computations
-- **Pandas** - Data manipulation and analysis
-
-### **Image Processing**
-- **PIL (Pillow)** - Image loading and manipulation
-- **OpenCV** - Advanced image preprocessing
-
-## 📊 Dataset
-
-The model is trained on the **PlantVillage Dataset** containing 54,000+ images of plant leaves.
-
-**Dataset Source:** [PlantVillage Dataset on Kaggle](https://www.kaggle.com/datasets/arjuntejaswi/plant-village)
-
-### **Supported Disease Classes:**
-- **Pepper Bell:** Bacterial spot, Healthy
-- **Potato:** Early blight, Late blight, Healthy
-- **Tomato:** Bacterial spot, Early blight, Late blight, Leaf mold, Septoria leaf spot, Spider mites, Target spot, Yellow Leaf Curl Virus, Mosaic virus, Healthy
-
-### **Data Split:**
-- **Training:** 70% (~37,800 images)
-- **Validation:** 15% (~8,100 images)  
-- **Test:** 15% (~8,100 images)
-
-## 🚀 Installation & Setup
-
-### **1. Clone Repository**
-```bash
-git clone https://github.com/yourusername/Plant-Disease-Detection-using-CNN.git
-cd Plant-Disease-Detection-using-CNN
+```text
+Base URL: https://agentrouter.org/v1
+Model: claude-haiku-4-5-20251001
 ```
 
-### **2. Create Virtual Environment**
+The app reads the API key from `.env` or environment variables using any of these names:
+
+```text
+AGENT_ROUTER_TOKEN
+AGENT_ROUTER_API_KEY
+ANTHROPIC_API_KEY
+```
+
+It also supports a single raw key line in `.env` for convenience. The `.env` file is ignored by Git.
+
+## Supported Disease Classes
+
+- Pepper bell: bacterial spot, healthy
+- Potato: early blight, late blight, healthy
+- Tomato: bacterial spot, early blight, late blight, leaf mold, Septoria leaf spot, spider mites, target spot, yellow leaf curl virus, mosaic virus, healthy
+
+## Tech Stack
+
+- PyTorch and torchvision for model training and inference
+- Streamlit for the web application
+- Plotly for charts
+- scikit-learn for label encoding and data splitting
+- Pandas and NumPy for data handling
+- Pillow for image processing
+
+## Project Structure
+
+```text
+Plant-Disease-Detection-using-CNN/
+|-- app/
+|   |-- ai_consultant.py      # AgentRouter second-opinion client
+|   |-- charts.py             # Plotly chart helpers
+|   |-- disease_info.py       # Disease metadata and label formatting
+|   |-- gradcam.py            # Grad-CAM heatmap generation
+|   |-- history.py            # Prediction history helpers
+|   |-- model_utils.py        # Model loading and prediction helpers
+|   `-- uncertainty.py        # Needs Expert Review logic
+|-- plant_disease_model.py    # CNN architecture and dataset pipeline
+|-- train.py                  # Training script
+|-- inference.py              # Command-line prediction script
+|-- streamlit_app.py          # Streamlit UI entrypoint
+|-- test_model.py             # Quick model loading/inference test
+|-- requirements.txt          # Python dependencies
+|-- best_model.pth            # Trained model weights
+|-- class_names.json          # Class labels
+|-- label_encoder.pkl         # Label encoder artifact
+`-- inference_transform.pkl   # Inference transform artifact
+```
+
+## Installation
+
 ```bash
 python -m venv venv
-# Windows
 venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-```
-
-### **3. Install Dependencies**
-```bash
 pip install -r requirements.txt
 ```
 
-### **4. Download Dataset**
-- Download the PlantVillage dataset from Kaggle (link above)
-- Extract to `PlantVillage/` folder in project root
-- Ensure folder structure: `PlantVillage/class_name/image.jpg`
+For Linux or macOS:
 
-## 💻 Usage
-
-### **Training the Model**
 ```bash
-python train.py
-```
-This will:
-- Load and preprocess the PlantVillage dataset
-- Train the CNN model with data augmentation
-- Save the best model as `best_model.pth`
-- Generate learning curves and artifacts
-
-### **Single Image Prediction**
-```bash
-python inference.py path/to/your/image.jpg
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-### **Web Application**
+## Running the App
+
 ```bash
 streamlit run streamlit_app.py
 ```
-Access the app at `http://localhost:8501`
 
-## 📁 Project Structure
+Then open:
 
-```
-Plant-Disease-Detection-using-CNN/
-├── 📄 plant_disease_model.py     # CNN architecture & data pipeline
-├── 🏋️ train.py                  # Training script
-├── 🔍 inference.py               # Command-line prediction
-├── 🌐 streamlit_app.py           # Web application
-├── 📊 requirements.txt           # Dependencies
-├── 🚫 .gitignore                # Git ignore rules
-├── 📖 README.md                 # This file
-│
-├── 📁 PlantVillage/              # Dataset (not in repo)
-│   ├── 🌶️ Pepper__bell___Bacterial_spot/
-│   ├── 🌶️ Pepper__bell___healthy/
-│   ├── 🥔 Potato___Early_blight/
-│   └── ... (other disease classes)
-│
-├── 🤖 Generated Files (after training):
-│   ├── best_model.pth            # Trained model weights (6.7MB)
-│   ├── class_names.json          # Disease class names
-│   ├── label_encoder.pkl         # Label encoder
-│   ├── inference_transform.pkl   # Image preprocessing
-│   └── learning_curves.png       # Training visualization
-│
-└── 🔧 Development:
-    ├── venv/                     # Virtual environment
-    └── __pycache__/              # Python cache
+```text
+http://localhost:8501
 ```
 
-## 🎯 Model Performance
+## Running Inference from the Command Line
 
-### **Architecture Details**
-- **Input Size:** 224×224×3 RGB images
-- **Convolutional Layers:** 3 blocks (32, 64, 128 filters)
-- **Techniques:** BatchNorm, Dropout, MaxPooling, ReLU
-- **Classification:** Fully connected layers (512 → 15 classes)
-- **Parameters:** 1,688,079 trainable parameters
+```bash
+python inference.py path/to/leaf_image.jpg
+```
 
-### **Training Results**
-- **Validation Accuracy:** 98%+
-- **Training Strategy:** Early stopping, Learning rate scheduling
-- **Data Augmentation:** Rotation, flips, color jitter
-- **Convergence:** 50+ epochs with optimal checkpointing
+## Training
 
-## 🖼️ Screenshots
+Place the PlantVillage dataset in a `PlantVillage/` directory using this structure:
 
-### Web Application Interface
-![App Screenshot](screenshots/app_demo.png)
+```text
+PlantVillage/
+|-- Pepper__bell___Bacterial_spot/
+|-- Pepper__bell___healthy/
+|-- Potato___Early_blight/
+`-- ...
+```
 
-### Training Progress
-![Learning Curves](learning_curves.png)
+Then run:
 
-## 🤝 Contributing
+```bash
+python train.py
+```
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Training saves:
 
-## 📝 License
+- `best_model.pth`
+- `class_names.json`
+- `label_encoder.pkl`
+- `inference_transform.pkl`
+- `learning_curves.png`
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Verification
 
-## 🙏 Acknowledgments
+Run the model smoke test:
 
-- **PlantVillage Dataset** - Dataset providers
-- **PyTorch Team** - Deep learning framework
-- **Streamlit** - Web application framework
-- **Agricultural Research Community** - Domain expertise
+```bash
+python test_model.py
+```
 
----
-**⭐ Star this repository if you found it helpful!**
+On Windows, if the console cannot print emoji from the existing script, run:
+
+```powershell
+$env:PYTHONIOENCODING='utf-8'
+python test_model.py
+```
+
+## Notes
+
+- Grad-CAM uses the trained CNN's final convolution block (`conv_block4`) and the predicted class score.
+- AI consultation is advisory only. It should not be treated as a definitive agricultural diagnosis.
+- Low confidence or close top predictions are flagged as `Needs Expert Review`.
+- The app does not retrain the model during inference.

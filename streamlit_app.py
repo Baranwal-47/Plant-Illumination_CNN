@@ -25,7 +25,7 @@ from app.model_utils import load_model, predict_image
 
 st.set_page_config(
     page_title="Plant Disease Detection",
-    page_icon="🌿",
+    page_icon=":herb:",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -72,8 +72,11 @@ def display_prediction_result(prediction, confidence, threshold, assessment):
         st.warning(f"Low confidence prediction: {formatted_prediction}")
         st.warning(f"Confidence ({confidence:.2%}) is below threshold ({threshold:.2%})")
 
-    st.metric("Confidence Level", f"{confidence:.2%}")
-    st.metric("Top-1 vs Top-2 Gap", f"{assessment.confidence_margin:.2%}")
+    metric_col1, metric_col2 = st.columns(2)
+    with metric_col1:
+        st.metric("Confidence Level", f"{confidence:.2%}")
+    with metric_col2:
+        st.metric("Top-1 vs Top-2 Gap", f"{assessment.confidence_margin:.2%}")
     st.progress(confidence, text=f"Confidence: {confidence:.2%}")
 
 
@@ -84,7 +87,7 @@ def display_ai_consultation(prediction, assessment):
             "Optional field notes",
             placeholder="Example: crop age, weather, watering pattern, visible spots, location...",
         )
-        if st.button("Ask AI for second consultation", use_container_width=True):
+        if st.button("Ask AI for second consultation", width="stretch"):
             with st.spinner("Asking AgentRouter for a cautious second opinion..."):
                 try:
                     consultation = request_ai_consultation(
@@ -156,67 +159,101 @@ def render_single_image_tab(
     if not uploaded_file:
         return
 
-    col1, col2 = st.columns([1, 1])
+    image = Image.open(uploaded_file)
+    file_size = getattr(uploaded_file, "size", None)
+    if file_size is None:
+        file_size = len(uploaded_file.getbuffer())
+    analysis_key = f"{uploaded_file.name}:{file_size}"
 
-    with col1:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Uploaded Image", use_container_width=True)
+    preview_col, detail_col = st.columns([1.25, 0.75])
+
+    with preview_col:
+        st.image(image, caption="Uploaded Image", width="stretch")
+
+    with detail_col:
         st.write("**Image Details:**")
         st.write(f"- Size: {image.size}")
         st.write(f"- Mode: {image.mode}")
         st.write(f"- Format: {uploaded_file.type}")
 
-    with col2:
-        if st.button("Analyze Disease", type="primary", use_container_width=True):
-            with st.spinner("Analyzing image..."):
-                try:
-                    prediction = predict_image(image, model, transform, device, encoder)
-                    assessment = assess_prediction(
-                        prediction.prediction,
-                        prediction.confidence,
-                        prediction.top3_confidences,
-                        confidence_threshold,
-                        margin_threshold,
-                    )
-                    add_prediction_history(
-                        st.session_state,
-                        uploaded_file.name,
-                        prediction.prediction,
-                        prediction.confidence,
-                        "Single Image",
-                        status=assessment.status,
-                    )
+        analyze_clicked = st.button("Analyze Disease", type="primary", width="stretch")
 
-                    st.write("### Analysis Results")
-                    display_prediction_result(
-                        prediction.prediction,
-                        prediction.confidence,
-                        confidence_threshold,
-                        assessment,
-                    )
-                    st.plotly_chart(
-                        create_confidence_chart(
-                            prediction.top3_classes,
-                            prediction.top3_confidences,
-                        ),
-                        use_container_width=True,
-                    )
-                    heatmap = create_gradcam_overlay(
-                        image,
-                        model,
-                        transform,
-                        device,
-                        prediction.predicted_index,
-                    )
-                    st.image(
-                        heatmap,
-                        caption="Grad-CAM disease focus heatmap",
-                        use_container_width=True,
-                    )
-                    display_disease_info(prediction.prediction)
-                    display_ai_consultation(prediction, assessment)
-                except Exception as exc:
-                    st.error(f"Error during prediction: {exc}")
+    if analyze_clicked:
+        with st.spinner("Analyzing image and generating Grad-CAM..."):
+            try:
+                prediction = predict_image(image, model, transform, device, encoder)
+                assessment = assess_prediction(
+                    prediction.prediction,
+                    prediction.confidence,
+                    prediction.top3_confidences,
+                    confidence_threshold,
+                    margin_threshold,
+                )
+                heatmap = create_gradcam_overlay(
+                    image,
+                    model,
+                    transform,
+                    device,
+                    prediction.predicted_index,
+                )
+                add_prediction_history(
+                    st.session_state,
+                    uploaded_file.name,
+                    prediction.prediction,
+                    prediction.confidence,
+                    "Single Image",
+                    status=assessment.status,
+                )
+                st.session_state.single_image_analysis = {
+                    "key": analysis_key,
+                    "prediction": prediction,
+                    "assessment": assessment,
+                    "heatmap": heatmap,
+                }
+            except Exception as exc:
+                st.error(f"Error during prediction: {exc}")
+                return
+
+    saved_analysis = st.session_state.get("single_image_analysis")
+    if saved_analysis and saved_analysis.get("key") == analysis_key:
+        prediction = saved_analysis["prediction"]
+        assessment = saved_analysis["assessment"]
+        heatmap = saved_analysis["heatmap"]
+
+        st.divider()
+        st.write("### Analysis Results")
+        display_prediction_result(
+            prediction.prediction,
+            prediction.confidence,
+            confidence_threshold,
+            assessment,
+        )
+
+        result_col, heatmap_col = st.columns([0.95, 1.05])
+        with result_col:
+            st.plotly_chart(
+                create_confidence_chart(
+                    prediction.top3_classes,
+                    prediction.top3_confidences,
+                )
+            )
+            display_disease_info(prediction.prediction)
+
+        with heatmap_col:
+            compare_left, compare_right = st.columns(2)
+            with compare_left:
+                st.image(image, caption="Original image", width="stretch")
+            with compare_right:
+                st.image(
+                    heatmap,
+                    caption="Grad-CAM focus overlay",
+                    width="stretch",
+                )
+            st.caption(
+                "Warmer colors show regions that contributed more strongly to the CNN prediction."
+            )
+
+        display_ai_consultation(prediction, assessment)
 
 
 def render_batch_tab(
@@ -303,7 +340,7 @@ def render_batch_tab(
 
     status_text.text("Analysis complete!")
     df = pd.DataFrame(results_data)
-    st.dataframe(df, use_container_width=True)
+    st.dataframe(df, width="stretch")
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -353,7 +390,7 @@ def render_history_tab():
         return
 
     history_df = history_dataframe(filtered_history)
-    st.dataframe(history_df, use_container_width=True, hide_index=True)
+    st.dataframe(history_df, width="stretch", hide_index=True)
 
     st.subheader("Analysis Summary")
     col1, col2, col3, col4 = st.columns(4)
@@ -370,18 +407,16 @@ def render_history_tab():
         col1, col2 = st.columns(2)
         with col1:
             st.plotly_chart(
-                create_status_distribution_chart(filtered_history),
-                use_container_width=True,
+                create_status_distribution_chart(filtered_history)
             )
         with col2:
             st.plotly_chart(
-                create_analysis_type_chart(filtered_history),
-                use_container_width=True,
+                create_analysis_type_chart(filtered_history)
             )
 
         confidence_fig = create_confidence_distribution_chart(filtered_history)
         if confidence_fig:
-            st.plotly_chart(confidence_fig, use_container_width=True)
+            st.plotly_chart(confidence_fig)
 
     csv = history_df.to_csv(index=False)
     st.download_button(

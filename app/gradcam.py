@@ -6,20 +6,28 @@ import torch.nn.functional as F
 from PIL import Image
 
 
+def _normalize_heatmap(cam):
+    cam = cam.detach().cpu().numpy()
+    high = np.percentile(cam, 99)
+    low = np.percentile(cam, 5)
+    if high <= low:
+        return np.zeros_like(cam, dtype=np.float32)
+    return np.clip((cam - low) / (high - low), 0.0, 1.0).astype(np.float32)
+
+
 def _heatmap_to_rgb(heatmap):
-    """Create a simple red/yellow heatmap without extra plotting dependencies."""
+    """Create a high-contrast blue-to-red heatmap without plotting dependencies."""
     heatmap = np.clip(heatmap, 0.0, 1.0)
-    red = np.full_like(heatmap, 255)
-    green = (255 * np.power(heatmap, 0.7)).astype(np.uint8)
-    blue = np.zeros_like(green)
-    alpha = (255 * heatmap).astype(np.uint8)
+    red = (255 * np.clip(1.8 * heatmap - 0.35, 0.0, 1.0)).astype(np.uint8)
+    green = (255 * np.clip(1.7 - np.abs(heatmap - 0.55) * 2.6, 0.0, 1.0)).astype(np.uint8)
+    blue = (255 * np.clip(1.2 - 1.7 * heatmap, 0.0, 1.0)).astype(np.uint8)
 
     rgb = np.stack([red, green, blue], axis=-1).astype(np.uint8)
-    return rgb, alpha
+    return rgb
 
 
-def create_gradcam_overlay(image, model, transform, device, class_index, alpha=0.45):
-    """Return a PIL image with a Grad-CAM overlay for the selected class."""
+def create_gradcam_overlay(image, model, transform, device, class_index, alpha=0.72):
+    """Return a high-contrast PIL Grad-CAM overlay for the selected class."""
     activations = []
     gradients = []
     target_layer = model.conv_block4
@@ -56,21 +64,13 @@ def create_gradcam_overlay(image, model, transform, device, class_index, alpha=0
             align_corners=False,
         ).squeeze()
 
-        cam_min = cam.min()
-        cam_max = cam.max()
-        if torch.isclose(cam_max, cam_min):
-            heatmap = torch.zeros_like(cam)
-        else:
-            heatmap = (cam - cam_min) / (cam_max - cam_min)
-
-        heatmap_np = heatmap.detach().cpu().numpy()
-        heatmap_rgb, heatmap_alpha = _heatmap_to_rgb(heatmap_np)
+        heatmap_np = _normalize_heatmap(cam)
+        heatmap_rgb = _heatmap_to_rgb(heatmap_np)
 
         original = image.convert("RGB")
         overlay = Image.fromarray(heatmap_rgb).resize(original.size)
-        mask = Image.fromarray(heatmap_alpha).resize(original.size)
         blended = Image.blend(original, overlay, alpha)
-        return Image.composite(blended, original, mask)
+        return blended
     finally:
         forward_handle.remove()
         backward_handle.remove()

@@ -1,6 +1,6 @@
 # Plant Disease Detection using CNN
 
-An AI-powered plant disease detection system that uses a custom PyTorch CNN to classify plant leaf diseases from images. The Streamlit app supports single-image analysis, batch analysis, prediction history, Grad-CAM explainability, uncertainty handling, and an optional AgentRouter AI second consultation.
+An AI-powered plant disease detection system that uses a custom PyTorch CNN to classify plant leaf diseases from images. The Streamlit app supports single-image analysis, batch analysis, prediction history, Grad-CAM explainability, uncertainty handling, and an optional Gemini AI second consultation.
 
 ## Features
 
@@ -9,55 +9,36 @@ An AI-powered plant disease detection system that uses a custom PyTorch CNN to c
 - 15 supported classes across pepper, potato, and tomato leaves.
 - Confidence scoring with adjustable reliability threshold.
 - Top-3 prediction chart for uncertainty awareness.
-- Grad-CAM heatmap overlay to show which image regions influenced the CNN prediction.
+- Grad-CAM heatmap and overlay to show which regions influenced the CNN prediction.
 
 ### Streamlit Application
 - Single image analysis with prediction, confidence, top-3 classes, disease information, and Grad-CAM comparison.
 - Batch image analysis with reliability flags and CSV export.
 - Results history with filters, summary metrics, charts, and CSV export.
 - `Needs Expert Review` status when confidence is low or the top predictions are too close.
-- Optional AI second consultation through AgentRouter for uncertain cases.
+- Optional Gemini second consultation for uncertain cases.
 
 ## App Preview
 
 ![Streamlit app demo](screenshots/app_demo.png)
 
-### AI Second Consultation
-The consultation feature uses an OpenAI-compatible AgentRouter chat completion endpoint.
+## Gemini AI Consultation
 
-Default configuration:
+The AI consultation feature uses Google Gemini through the `generateContent` API.
 
-```text
-Base URL: https://agentrouter.org/v1
-Model: claude-haiku-4-5-20251001
-```
-
-The app reads the API key from `.env` or environment variables using any of these names:
+Add your Gemini API key to `.env`:
 
 ```text
-AGENT_ROUTER_TOKEN
-AGENT_ROUTER_API_KEY
-AGENT_ROUTER_AUTH_TOKEN
-ANTHROPIC_AUTH_TOKEN
-ANTHROPIC_API_KEY
+GEMINI_API_KEY=your-gemini-api-key
 ```
 
-If your AgentRouter dashboard gives a separate System Access Token, add it alongside the `sk-...` API key:
+Optional model override:
 
 ```text
-AGENT_ROUTER_TOKEN=sk-your-api-key
-AGENT_ROUTER_SYSTEM_TOKEN=your-system-access-token
+GEMINI_MODEL=gemini-flash-latest
 ```
 
-By default the app sends the system token as `X-System-Token` and also includes common aliases used by routers. If AgentRouter gives you a specific header name, set:
-
-```text
-AGENT_ROUTER_SYSTEM_TOKEN_HEADER=X-System-Token
-```
-
-The app also supports a single raw key line in `.env` for convenience. The `.env` file is ignored by Git.
-
-If AgentRouter returns `unauthorized_client_error`, the token was found but AgentRouter rejected the calling client before model execution. In that case, use an API/system token approved for direct API calls or contact AgentRouter support.
+The consultation is advisory only. It uses the CNN prediction, confidence scores, uncertainty reasons, disease notes, and optional field notes to produce a cautious second-opinion report.
 
 ## Supported Disease Classes
 
@@ -69,6 +50,7 @@ If AgentRouter returns `unauthorized_client_error`, the token was found but Agen
 
 - PyTorch and torchvision for model training and inference
 - Streamlit for the web application
+- Google Gemini API for AI second consultation
 - Plotly for charts
 - scikit-learn for label encoding and data splitting
 - Pandas and NumPy for data handling
@@ -79,7 +61,7 @@ If AgentRouter returns `unauthorized_client_error`, the token was found but Agen
 ```text
 Plant-Disease-Detection-using-CNN/
 |-- app/
-|   |-- ai_consultant.py      # AgentRouter second-opinion client
+|   |-- ai_consultant.py      # Gemini second-opinion client
 |   |-- charts.py             # Plotly chart helpers
 |   |-- disease_info.py       # Disease metadata and label formatting
 |   |-- gradcam.py            # Grad-CAM heatmap generation
@@ -180,6 +162,6 @@ python test_model.py
 ## Notes
 
 - Grad-CAM uses the trained CNN's final convolution block (`conv_block4[0]`) and the predicted class score. It is generated from model activations and gradients, then displayed as a JET heatmap and superimposed overlay.
-- AI consultation is advisory only. It should not be treated as a definitive agricultural diagnosis.
+- Gemini consultation is advisory only. It should not be treated as a definitive agricultural diagnosis.
 - Low confidence or close top predictions are flagged as `Needs Expert Review`.
 - The app does not retrain the model during inference.

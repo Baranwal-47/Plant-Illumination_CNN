@@ -81,14 +81,14 @@ def display_prediction_result(prediction, confidence, threshold, assessment):
 
 
 def display_ai_consultation(prediction, assessment):
-    """Render the optional AgentRouter second-consultation panel."""
+    """Render the optional Gemini second-consultation panel."""
     with st.expander("AI Second Consultation", expanded=assessment.is_uncertain):
         user_notes = st.text_area(
             "Optional field notes",
             placeholder="Example: crop age, weather, watering pattern, visible spots, location...",
         )
         if st.button("Ask AI for second consultation", width="stretch"):
-            with st.spinner("Asking AgentRouter for a cautious second opinion..."):
+            with st.spinner("Asking Gemini for a cautious second opinion..."):
                 try:
                     consultation = request_ai_consultation(
                         prediction,

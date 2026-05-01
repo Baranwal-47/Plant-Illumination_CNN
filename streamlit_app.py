@@ -51,61 +51,61 @@ DISEASE_INFO = {
         "treatment": "No treatment needed",
         "prevention": "Maintain proper care and monitoring"
     },
-    "Tomato___Bacterial_spot": {
+    "Tomato_Bacterial_spot": {
         "description": "Bacterial spot affects tomato leaves and fruit.",
         "symptoms": "Small dark spots on leaves, fruit lesions",
         "treatment": "Copper sprays, remove affected parts",
         "prevention": "Use certified seeds, avoid overhead watering"
     },
-    "Tomato___Early_blight": {
+    "Tomato_Early_blight": {
         "description": "Early blight is a common tomato fungal disease.",
         "symptoms": "Brown spots with target-like rings",
         "treatment": "Fungicide applications, proper plant spacing",
         "prevention": "Mulching, avoiding wet foliage"
     },
-    "Tomato___Late_blight": {
+    "Tomato_Late_blight": {
         "description": "Late blight can devastate tomato crops quickly.",
         "symptoms": "Water-soaked lesions, rapid plant death",
         "treatment": "Preventive fungicides, immediate removal of affected plants",
         "prevention": "Use resistant varieties, monitor weather conditions"
     },
-    "Tomato___Leaf_Mold": {
+    "Tomato_Leaf_Mold": {
         "description": "Leaf mold thrives in humid greenhouse conditions.",
         "symptoms": "Yellow spots on upper leaf surface, fuzzy growth below",
         "treatment": "Improve ventilation, apply fungicides",
         "prevention": "Reduce humidity, increase air circulation"
     },
-    "Tomato___Septoria_leaf_spot": {
+    "Tomato_Septoria_leaf_spot": {
         "description": "Septoria leaf spot causes gradual defoliation.",
         "symptoms": "Small brown spots with dark borders and light centers",
         "treatment": "Fungicide applications, remove lower leaves",
         "prevention": "Mulching, proper plant spacing"
     },
-    "Tomato___Spider_mites_Two_spotted_spider_mite": {
+    "Tomato_Spider_mites_Two_spotted_spider_mite": {
         "description": "Spider mites are tiny pests that damage leaves.",
         "symptoms": "Stippled leaves, fine webbing, yellowing",
         "treatment": "Miticides, increase humidity, beneficial insects",
         "prevention": "Regular monitoring, avoid water stress"
     },
-    "Tomato___Target_Spot": {
+    "Tomato__Target_Spot": {
         "description": "Target spot creates distinctive ring patterns on leaves.",
         "symptoms": "Brown spots with concentric rings",
         "treatment": "Fungicide applications, improve air circulation",
         "prevention": "Avoid overhead watering, crop rotation"
     },
-    "Tomato___Yellow_Leaf_Curl_Virus": {
+    "Tomato__Tomato_YellowLeaf__Curl_Virus": {
         "description": "Viral disease transmitted by whiteflies.",
         "symptoms": "Upward curling leaves, yellowing, stunted growth",
         "treatment": "No cure - remove infected plants, control whiteflies",
         "prevention": "Use resistant varieties, control whitefly populations"
     },
-    "Tomato___mosaic_virus": {
+    "Tomato__Tomato_mosaic_virus": {
         "description": "Mosaic virus causes distinctive leaf patterns.",
         "symptoms": "Mottled green and yellow leaf patterns",
         "treatment": "No cure - remove infected plants",
         "prevention": "Use virus-free seeds, control aphid vectors"
     },
-    "Tomato___healthy": {
+    "Tomato_healthy": {
         "description": "Healthy tomato plant with normal growth.",
         "symptoms": "Vibrant green leaves, normal growth patterns",
         "treatment": "No treatment needed",

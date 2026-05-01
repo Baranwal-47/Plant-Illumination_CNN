@@ -139,7 +139,7 @@ def request_ai_consultation(prediction, assessment, user_notes=""):
             ],
             "generationConfig": {
                 "temperature": 0.2,
-                "maxOutputTokens": 700,
+                "maxOutputTokens": 7000,
             },
         }
     ).encode("utf-8")

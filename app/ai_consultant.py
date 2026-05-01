@@ -16,6 +16,8 @@ DEFAULT_AGENT_ROUTER_MODEL = "claude-haiku-4-5-20251001"
 class AgentRouterConfig:
     api_key: str
     auth_token: str
+    system_token: str
+    system_token_header: str
     base_url: str
     model: str
 
@@ -74,6 +76,19 @@ def load_agent_router_config():
         or os.getenv("AGENT_ROUTER_TOKEN")
         or os.getenv("AGENT_ROUTER_API_KEY")
     )
+    system_token = (
+        file_values.get("AGENT_ROUTER_SYSTEM_TOKEN")
+        or file_values.get("SYSTEM_ACCESS_TOKEN")
+        or file_values.get("SYSTEM_TOKEN")
+        or os.getenv("AGENT_ROUTER_SYSTEM_TOKEN")
+        or os.getenv("SYSTEM_ACCESS_TOKEN")
+        or os.getenv("SYSTEM_TOKEN")
+    )
+    system_token_header = (
+        file_values.get("AGENT_ROUTER_SYSTEM_TOKEN_HEADER")
+        or os.getenv("AGENT_ROUTER_SYSTEM_TOKEN_HEADER")
+        or "X-System-Token"
+    )
     base_url = (
         file_values.get("AGENT_ROUTER_BASE_URL")
         or os.getenv("AGENT_ROUTER_BASE_URL")
@@ -95,6 +110,8 @@ def load_agent_router_config():
     return AgentRouterConfig(
         api_key=api_key,
         auth_token=auth_token or api_key,
+        system_token=system_token or "",
+        system_token_header=system_token_header,
         base_url=base_url.rstrip("/"),
         model=model,
     )
@@ -107,12 +124,21 @@ def _chat_completions_url(base_url):
 
 
 def _agent_router_headers(config):
-    return {
+    headers = {
         "Authorization": f"Bearer {config.auth_token}",
         "x-api-key": config.api_key,
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
+
+    if config.system_token:
+        headers[config.system_token_header] = config.system_token
+        headers.setdefault("X-System-Token", config.system_token)
+        headers.setdefault("X-Client-Token", config.system_token)
+        headers.setdefault("X-Agent-Token", config.system_token)
+        headers.setdefault("X-API-KEY", config.system_token)
+
+    return headers
 
 
 def _format_http_error(exc):
@@ -129,9 +155,10 @@ def _format_http_error(exc):
         return (
             "AgentRouter rejected this Streamlit app as an unauthorized client before "
             "running the model. Your token may be enabled, but the account/client is not "
-            "authorized for direct custom API calls. Use an AgentRouter API/system token "
-            "approved for API calls, or contact AgentRouter support and share the "
-            "`unauthorized_client_error` message."
+            "authorized for direct custom API calls. Add your System Access Token to "
+            "`.env` as `AGENT_ROUTER_SYSTEM_TOKEN=...`. If it is already set, confirm "
+            "the required system-token header name with AgentRouter support and set "
+            "`AGENT_ROUTER_SYSTEM_TOKEN_HEADER`."
         )
 
     return f"AgentRouter request failed ({exc.code}): {message}"

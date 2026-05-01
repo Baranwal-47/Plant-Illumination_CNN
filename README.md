@@ -42,7 +42,20 @@ ANTHROPIC_AUTH_TOKEN
 ANTHROPIC_API_KEY
 ```
 
-It also supports a single raw key line in `.env` for convenience. The `.env` file is ignored by Git.
+If your AgentRouter dashboard gives a separate System Access Token, add it alongside the `sk-...` API key:
+
+```text
+AGENT_ROUTER_TOKEN=sk-your-api-key
+AGENT_ROUTER_SYSTEM_TOKEN=your-system-access-token
+```
+
+By default the app sends the system token as `X-System-Token` and also includes common aliases used by routers. If AgentRouter gives you a specific header name, set:
+
+```text
+AGENT_ROUTER_SYSTEM_TOKEN_HEADER=X-System-Token
+```
+
+The app also supports a single raw key line in `.env` for convenience. The `.env` file is ignored by Git.
 
 If AgentRouter returns `unauthorized_client_error`, the token was found but AgentRouter rejected the calling client before model execution. In that case, use an API/system token approved for direct API calls or contact AgentRouter support.
 

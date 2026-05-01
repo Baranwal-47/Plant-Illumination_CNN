@@ -17,6 +17,7 @@ from app.history import (
     filter_history,
     history_dataframe,
 )
+from app.gradcam import create_gradcam_overlay
 from app.model_utils import load_model, predict_image
 
 
@@ -145,6 +146,18 @@ def render_single_image_tab(model, transform, device, encoder, confidence_thresh
                             prediction.top3_classes,
                             prediction.top3_confidences,
                         ),
+                        use_container_width=True,
+                    )
+                    heatmap = create_gradcam_overlay(
+                        image,
+                        model,
+                        transform,
+                        device,
+                        prediction.predicted_index,
+                    )
+                    st.image(
+                        heatmap,
+                        caption="Grad-CAM disease focus heatmap",
                         use_container_width=True,
                     )
                     display_disease_info(prediction.prediction)

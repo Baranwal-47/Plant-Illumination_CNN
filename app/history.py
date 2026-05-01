@@ -10,7 +10,14 @@ def ensure_prediction_history(session_state):
         session_state.prediction_history = []
 
 
-def add_prediction_history(session_state, filename, prediction, confidence, analysis_type):
+def add_prediction_history(
+    session_state,
+    filename,
+    prediction,
+    confidence,
+    analysis_type,
+    status=None,
+):
     ensure_prediction_history(session_state)
     session_state.prediction_history.append(
         {
@@ -18,7 +25,8 @@ def add_prediction_history(session_state, filename, prediction, confidence, anal
             "filename": filename,
             "prediction": prediction,
             "confidence": confidence,
-            "status": "Healthy" if "healthy" in prediction.lower() else "Disease Detected",
+            "status": status
+            or ("Healthy" if "healthy" in prediction.lower() else "Disease Detected"),
             "analysis_type": analysis_type,
         }
     )

@@ -10,7 +10,9 @@ from app.charts import (
     create_confidence_distribution_chart,
     create_status_distribution_chart,
 )
+from app.ai_consultant import ConsultationError, request_ai_consultation
 from app.disease_info import format_label, get_disease_info
+from app.uncertainty import DEFAULT_MARGIN_THRESHOLD, assess_prediction
 from app.history import (
     add_prediction_history,
     ensure_prediction_history,
@@ -52,11 +54,15 @@ def display_disease_info(disease_name):
             st.write(info["prevention"])
 
 
-def display_prediction_result(prediction, confidence, threshold):
+def display_prediction_result(prediction, confidence, threshold, assessment):
     """Display the primary prediction status and confidence meter."""
     formatted_prediction = format_label(prediction)
 
-    if confidence >= threshold:
+    if assessment.is_uncertain:
+        st.warning(f"Needs expert review: {formatted_prediction}")
+        for reason in assessment.reasons:
+            st.write(f"- {reason}")
+    elif confidence >= threshold:
         if "healthy" in prediction.lower():
             st.success("Healthy plant detected")
             st.balloons()
@@ -67,7 +73,30 @@ def display_prediction_result(prediction, confidence, threshold):
         st.warning(f"Confidence ({confidence:.2%}) is below threshold ({threshold:.2%})")
 
     st.metric("Confidence Level", f"{confidence:.2%}")
+    st.metric("Top-1 vs Top-2 Gap", f"{assessment.confidence_margin:.2%}")
     st.progress(confidence, text=f"Confidence: {confidence:.2%}")
+
+
+def display_ai_consultation(prediction, assessment):
+    """Render the optional AgentRouter second-consultation panel."""
+    with st.expander("AI Second Consultation", expanded=assessment.is_uncertain):
+        user_notes = st.text_area(
+            "Optional field notes",
+            placeholder="Example: crop age, weather, watering pattern, visible spots, location...",
+        )
+        if st.button("Ask AI for second consultation", use_container_width=True):
+            with st.spinner("Asking AgentRouter for a cautious second opinion..."):
+                try:
+                    consultation = request_ai_consultation(
+                        prediction,
+                        assessment,
+                        user_notes=user_notes,
+                    )
+                    st.markdown(consultation)
+                except ConsultationError as exc:
+                    st.warning(f"AI consultation unavailable: {exc}")
+                except Exception as exc:
+                    st.warning(f"AI consultation unavailable: {exc}")
 
 
 def render_sidebar(classes, device):
@@ -91,16 +120,31 @@ def render_sidebar(classes, device):
             step=0.05,
             help="Minimum confidence for reliable predictions",
         )
+        margin_threshold = st.slider(
+            "Close Prediction Gap",
+            min_value=0.0,
+            max_value=0.5,
+            value=DEFAULT_MARGIN_THRESHOLD,
+            step=0.01,
+            help="Flag results when the top two predictions are too close",
+        )
 
         if st.checkbox("Show Available Disease Classes"):
             st.write("**Detectable Diseases:**")
             for i, class_name in enumerate(classes, 1):
                 st.write(f"{i}. {format_label(class_name)}")
 
-    return confidence_threshold
+    return confidence_threshold, margin_threshold
 
 
-def render_single_image_tab(model, transform, device, encoder, confidence_threshold):
+def render_single_image_tab(
+    model,
+    transform,
+    device,
+    encoder,
+    confidence_threshold,
+    margin_threshold,
+):
     st.header("Single Image Analysis")
 
     uploaded_file = st.file_uploader(
@@ -127,12 +171,20 @@ def render_single_image_tab(model, transform, device, encoder, confidence_thresh
             with st.spinner("Analyzing image..."):
                 try:
                     prediction = predict_image(image, model, transform, device, encoder)
+                    assessment = assess_prediction(
+                        prediction.prediction,
+                        prediction.confidence,
+                        prediction.top3_confidences,
+                        confidence_threshold,
+                        margin_threshold,
+                    )
                     add_prediction_history(
                         st.session_state,
                         uploaded_file.name,
                         prediction.prediction,
                         prediction.confidence,
                         "Single Image",
+                        status=assessment.status,
                     )
 
                     st.write("### Analysis Results")
@@ -140,6 +192,7 @@ def render_single_image_tab(model, transform, device, encoder, confidence_thresh
                         prediction.prediction,
                         prediction.confidence,
                         confidence_threshold,
+                        assessment,
                     )
                     st.plotly_chart(
                         create_confidence_chart(
@@ -161,11 +214,19 @@ def render_single_image_tab(model, transform, device, encoder, confidence_thresh
                         use_container_width=True,
                     )
                     display_disease_info(prediction.prediction)
+                    display_ai_consultation(prediction, assessment)
                 except Exception as exc:
                     st.error(f"Error during prediction: {exc}")
 
 
-def render_batch_tab(model, transform, device, encoder, confidence_threshold):
+def render_batch_tab(
+    model,
+    transform,
+    device,
+    encoder,
+    confidence_threshold,
+    margin_threshold,
+):
     st.header("Batch Analysis")
     st.info("Upload multiple images for batch processing")
 
@@ -190,10 +251,12 @@ def render_batch_tab(model, transform, device, encoder, confidence_threshold):
         try:
             image = Image.open(file)
             prediction = predict_image(image, model, transform, device, encoder)
-            status = (
-                "Healthy"
-                if "healthy" in prediction.prediction.lower()
-                else "Disease Detected"
+            assessment = assess_prediction(
+                prediction.prediction,
+                prediction.confidence,
+                prediction.top3_confidences,
+                confidence_threshold,
+                margin_threshold,
             )
 
             results_data.append(
@@ -201,9 +264,9 @@ def render_batch_tab(model, transform, device, encoder, confidence_threshold):
                     "Filename": file.name,
                     "Prediction": format_label(prediction.prediction),
                     "Confidence": f"{prediction.confidence:.2%}",
-                    "Status": status,
+                    "Status": assessment.status,
                     "Reliable": "Yes"
-                    if prediction.confidence >= confidence_threshold
+                    if not assessment.is_uncertain
                     else "No",
                 }
             )
@@ -213,6 +276,7 @@ def render_batch_tab(model, transform, device, encoder, confidence_threshold):
                 prediction.prediction,
                 prediction.confidence,
                 "Batch Analysis",
+                status=assessment.status,
             )
         except Exception:
             results_data.append(
@@ -347,15 +411,29 @@ def main():
         st.error(f"Error loading model: {exc}")
         return
 
-    confidence_threshold = render_sidebar(classes, device)
+    confidence_threshold, margin_threshold = render_sidebar(classes, device)
     tab1, tab2, tab3 = st.tabs(
         ["Single Image Analysis", "Batch Analysis", "Results History"]
     )
 
     with tab1:
-        render_single_image_tab(model, transform, device, encoder, confidence_threshold)
+        render_single_image_tab(
+            model,
+            transform,
+            device,
+            encoder,
+            confidence_threshold,
+            margin_threshold,
+        )
     with tab2:
-        render_batch_tab(model, transform, device, encoder, confidence_threshold)
+        render_batch_tab(
+            model,
+            transform,
+            device,
+            encoder,
+            confidence_threshold,
+            margin_threshold,
+        )
     with tab3:
         render_history_tab()
 
